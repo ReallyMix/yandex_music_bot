@@ -3,24 +3,16 @@ from aiogram.types import (
     KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    WebAppInfo,
 )
 
+
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Главная клавиатура с командами после авторизации"""
+    """Главная клавиатура после авторизации"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
                 KeyboardButton(text="📋 Мои плейлисты"),
                 KeyboardButton(text="🆕 Создать плейлист"),
-            ],
-            [
-                KeyboardButton(text="📝 Текст песни"),
-                KeyboardButton(text="ℹ️ Инфо о песне"),
-            ],
-            [
-                KeyboardButton(text="👤 Инфо об исполнителе"),
-                KeyboardButton(text="➕ Добавить в плейлист"),
             ],
             [
                 KeyboardButton(text="📊 Статистика"),
@@ -31,17 +23,19 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
         input_field_placeholder="Выберите команду",
     )
 
+
 def get_auth_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура для авторизации через Telegram WebApp"""
-    # ВАЖНО: Замени USERNAME на свой GitHub username после деплоя на GitHub Pages
-    webapp_url = "https://USERNAME.github.io/s3v3ryan1n-project-yandex-music/webapp.html"
-    
+    """Кнопка с переходом на страницу, где юзер сам достаёт токен"""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🎵 Авторизоваться",
-                    web_app=WebAppInfo(url=webapp_url)
+                    text="🎵 Открыть Яндекс.Музыку для получения токена",
+                    url=(
+                        "https://oauth.yandex.ru/authorize"
+                        "?response_type=token"
+                        "&client_id=23cabbbdc6cd418abb4b39c32c41195d"
+                    ),
                 )
             ]
         ]

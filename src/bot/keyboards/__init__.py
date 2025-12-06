@@ -1,3 +1,6 @@
-from .main_menu import get_main_keyboard, get_auth_keyboard
+"""
+Клавиатуры для бота
+"""
+from . import main_menu
 
-__all__ = ["get_main_keyboard", "get_auth_keyboard"]
+__all__ = ['main_menu']

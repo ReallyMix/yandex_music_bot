@@ -1,1 +1,1 @@
-#реализация основных команд бота
+from .yandex_music import YandexMusicService

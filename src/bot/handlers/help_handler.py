@@ -2,27 +2,36 @@ from aiogram import Router
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
+
 router = Router()
 
 # Client ID от Яндекс.Музыки
 CLIENT_ID = "23cabbbdc6cd418abb4b39c32c41195d"
-AUTH_URL = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={CLIENT_ID}"
+AUTH_URL = (
+    f"https://oauth.yandex.ru/authorize?response_type=token&client_id={CLIENT_ID}"
+)
 
 
 @router.message(Command("help"))
 async def help_command(message: Message):
     """Справка по боту"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🔑 Получить токен",
-            url=AUTH_URL
-        )],
-        [InlineKeyboardButton(
-            text="📖 GitHub с инструкциями",
-            url="https://github.com/MarshalX/yandex-music-api/discussions/513"
-        )]
-    ])
-    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔑 Получить токен",
+                    url=AUTH_URL,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📖 GitHub с инструкциями",
+                    url="https://github.com/MarshalX/yandex-music-api/discussions/513",
+                )
+            ],
+        ]
+    )
+
     await message.answer(
         "<b>📚 Справка по боту Яндекс.Музыки</b>\n\n"
         "<b>🔐 Авторизация:</b>\n"
@@ -38,7 +47,7 @@ async def help_command(message: Message):
         "3. Скопируй токен из URL после редиректа\n"
         "4. Отправь командой /settoken\n\n"
         "<i>💡 Подробная инструкция: нажми кнопку выше в /start</i>",
-        reply_markup=keyboard
+        reply_markup=keyboard,
     )
 
 

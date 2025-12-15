@@ -31,3 +31,14 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.mypy_cache/

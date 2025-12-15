@@ -95,3 +95,4 @@ def get_music_menu() -> InlineKeyboardMarkup:
             ],
         ]
     )
+

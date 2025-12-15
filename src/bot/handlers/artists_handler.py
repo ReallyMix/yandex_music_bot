@@ -12,6 +12,7 @@ async def show_artists_callback(callback: CallbackQuery):
     await callback.answer()
     await show_artists(callback.message, callback.from_user.id)
 
+
 @router.message(F.text == "👨‍🎤 Любимые артисты")
 @router.message(Command("artists"))
 @require_auth

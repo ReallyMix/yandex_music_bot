@@ -15,6 +15,8 @@ async def show_stats_callback(callback: CallbackQuery):
     await callback.answer()
     await show_stats(callback.message, callback.from_user.id)
 
+
+
 @router.message(Command("stats"))
 @require_auth
 async def stats_command(message: Message):

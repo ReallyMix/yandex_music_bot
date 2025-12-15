@@ -6,6 +6,8 @@ from .common import AUTH_URL
 
 router = Router()
 
+
+
 @router.message(Command("help"))
 async def help_command(message: Message):
     """Справка по боту"""

@@ -12,6 +12,7 @@ async def show_albums_callback(callback: CallbackQuery):
     await callback.answer()
     await show_albums(callback.message, callback.from_user.id)
 
+
 @router.message(F.text == "💿 Альбомы")
 @router.message(Command("albums"))
 @require_auth

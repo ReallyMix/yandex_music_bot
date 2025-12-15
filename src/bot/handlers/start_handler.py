@@ -13,6 +13,8 @@ from ..keyboards.main_menu import get_main_menu
 from ..storage import user_tokens
 from .common import AUTH_URL, CLIENT_ID, has_token, get_client, _effective_user_id_from_message
 
+
+
 router = Router()
 logger = logging.getLogger(__name__)
 

@@ -68,3 +68,5 @@ async def show_likes(message: Message, user_id: int):
     except Exception as e:
         logger.error(f"Ошибка получения лайков: {e}")
         await status_msg.edit_text(f"✗ Ошибка: {e}")
+
+        

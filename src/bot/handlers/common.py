@@ -106,3 +106,4 @@ async def _get_playlist_tracks_by_kind(token: str, user_id: int, kind: int):
 
     fetched = ym_service._fetch_tracks(client, ids)  # type: ignore[attr-defined]
     return direct_tracks + [t for t in fetched if t is not None]
+

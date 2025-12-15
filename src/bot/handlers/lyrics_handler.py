@@ -10,6 +10,8 @@ from ..services import ym_service
 router = Router()
 logger = logging.getLogger(__name__)
 
+
+
 @router.callback_query(F.data.startswith("lyrics:"))
 async def lyrics_callback(callback: CallbackQuery):
     await callback.answer()

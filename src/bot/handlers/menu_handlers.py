@@ -75,3 +75,5 @@ async def back_to_music_callback(callback: CallbackQuery):
         await callback.message.answer("✗ Требуется авторизация. Используй /start.")
         return
     await _send_music_menu(callback.message)
+
+    

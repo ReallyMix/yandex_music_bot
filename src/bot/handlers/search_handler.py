@@ -14,6 +14,8 @@ async def search_handler(message: Message):
     if len(query) < 2:
         return
 
+
+
     status_msg = await message.answer(f"🔍 Ищу: <b>{query}</b>...")
 
     try:

@@ -11,6 +11,7 @@ from .stats_handler import router as stats_router
 from .search_handler import router as search_router
 from .lyrics_handler import router as lyrics_router
 
+
 main_router = Router()
 
 # Включаем все роутеры в главный

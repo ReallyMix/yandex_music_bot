@@ -1,1 +1,1 @@
-from .yandex_music import YandexMusicService
+from .yandex_music_service import YandexMusicService

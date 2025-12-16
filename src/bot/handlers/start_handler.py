@@ -10,10 +10,7 @@ from aiogram.fsm.state import State, StatesGroup
 from yandex_music import Client
 
 from ..keyboards.main_menu import get_main_menu
-from ..storage import user_tokens
-from .common import AUTH_URL, CLIENT_ID, has_token, get_client, _effective_user_id_from_message
-
-
+from ..storage import set_token, get_token, remove_token, has_token as has_token_storage
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -21,11 +18,14 @@ logger = logging.getLogger(__name__)
 class AuthStates(StatesGroup):
     waiting_for_url = State()
 
+CLIENT_ID = "23cabbbdc6cd418abb4b39c32c41195d"
+AUTH_URL = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={CLIENT_ID}"
+
 @router.message(Command("start"))
 async def start_handler(message: Message):
     """Старт бота"""
     user_id = message.from_user.id
-    user_has_token = has_token(user_id)
+    user_has_token = has_token_storage(user_id)
 
     if user_has_token:
         await message.answer(
@@ -146,17 +146,17 @@ async def process_raw_string(message: Message, raw_string: str):
         client = Client(token).init()
         account = client.account_status()
 
-        user_tokens[message.from_user.id] = token
+        set_token(message.from_user.id, token)
         logger.info(f"Токен установлен для пользователя {message.from_user.id}")
 
         inline_menu = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="♪ Моя музыка", callback_data="open_music_menu"),
-                InlineKeyboardButton(text="🔍 Поиск", callback_data="open_search")
+                InlineKeyboardButton(text="Моя музыка", callback_data="open_music_menu"),
+                InlineKeyboardButton(text="Поиск", callback_data="open_search")
             ],
             [
-                InlineKeyboardButton(text="❤️ Лайки", callback_data="show_likes"),
-                InlineKeyboardButton(text="📁 Плейлисты", callback_data="show_playlists")
+                InlineKeyboardButton(text="Мои лайки", callback_data="show_likes"),
+                InlineKeyboardButton(text="Плейлисты", callback_data="show_playlists")
             ]
         ])
 
@@ -227,17 +227,17 @@ async def settoken_command(message: Message):
         client = Client(token).init()
         account = client.account_status()
 
-        user_tokens[message.from_user.id] = token
+        set_token(message.from_user.id, token)
         logger.info(f"Токен установлен для пользователя {message.from_user.id}")
 
         inline_menu = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="♪ Моя музыка", callback_data="open_music_menu"),
-                InlineKeyboardButton(text="🔍 Поиск", callback_data="open_search")
+                InlineKeyboardButton(text="Моя музыка", callback_data="open_music_menu"),
+                InlineKeyboardButton(text="Поиск", callback_data="open_search")
             ],
             [
-                InlineKeyboardButton(text="❤️ Лайки", callback_data="show_likes"),
-                InlineKeyboardButton(text="📁 Плейлисты", callback_data="show_playlists")
+                InlineKeyboardButton(text="Мои лайки", callback_data="show_likes"),
+                InlineKeyboardButton(text="Плейлисты", callback_data="show_playlists")
             ]
         ])
 
@@ -262,7 +262,7 @@ async def settoken_command(message: Message):
 async def check_command(message: Message):
     """Проверка сохранённого токена"""
     user_id = message.from_user.id
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)
 
     if not token:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -287,7 +287,7 @@ async def check_command(message: Message):
 
     except Exception as e:
         logger.error(f'Ошибка проверки токена: {e}')
-        user_tokens.pop(user_id, None)
+        remove_token(user_id)
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📱 Получить новый токен", url=AUTH_URL)]
@@ -305,8 +305,8 @@ async def logout_command(message: Message):
     """Удаление токена"""
     user_id = message.from_user.id
 
-    if user_id in user_tokens:
-        user_tokens.pop(user_id)
+    if has_token_storage(user_id):
+        remove_token(user_id)
         logger.info(f"Токен удалён для пользователя {user_id}")
         await message.answer(
             "✅ Токен удалён.\n\n"

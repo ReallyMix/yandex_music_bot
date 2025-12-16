@@ -3,7 +3,8 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
-from .common import require_auth, has_token, _effective_user_id_from_message, get_client, AUTH_URL
+from .common import require_auth, _effective_user_id_from_message, get_client, AUTH_URL
+from ..storage import has_token  # Добавляем импорт has_token из storage
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -56,13 +57,13 @@ async def _send_search_prompt(message: Message) -> None:
         "• <code>Night Visions</code>"
     )
 
-@router.message(F.text == "♪ Моя музыка")
+@router.message(F.text == "Моя музыка")
 @router.message(Command("mymusic"))
 @require_auth
 async def my_music_handler(message: Message):
     await _send_music_menu(message)
 
-@router.message(F.text == "🔍 Поиск")
+@router.message(F.text == "Поиск")
 @router.message(Command("search"))
 @require_auth
 async def search_command(message: Message):
@@ -75,5 +76,3 @@ async def back_to_music_callback(callback: CallbackQuery):
         await callback.message.answer("✗ Требуется авторизация. Используй /start.")
         return
     await _send_music_menu(callback.message)
-
-    

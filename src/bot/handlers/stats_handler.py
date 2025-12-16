@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 
 from .common import require_auth, _effective_user_id_from_message
-from ..storage import user_tokens
+from ..storage import get_token  # ИЗМЕНЕНО ЗДЕСЬ
 from ..services import ym_service
 
 router = Router()
@@ -15,8 +15,6 @@ async def show_stats_callback(callback: CallbackQuery):
     await callback.answer()
     await show_stats(callback.message, callback.from_user.id)
 
-
-
 @router.message(Command("stats"))
 @require_auth
 async def stats_command(message: Message):
@@ -25,7 +23,7 @@ async def stats_command(message: Message):
 async def show_stats(message: Message, user_id: int):
     status_msg = await message.answer("📊 Собираю статистику...")
 
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
     if not token:
         await status_msg.edit_text("✗ Ошибка авторизации")
         return

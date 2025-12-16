@@ -2,22 +2,18 @@ import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-# В этом файле НЕ должно быть импорта из common
-# или если нужны функции из common, то импортируйте их напрямую
-from ..storage import user_tokens
+from ..storage import get_token  # ИЗМЕНЕНО ЗДЕСЬ
 from ..services import ym_service
 
 router = Router()
 logger = logging.getLogger(__name__)
-
-
 
 @router.callback_query(F.data.startswith("lyrics:"))
 async def lyrics_callback(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
     if not token:
         await callback.message.answer("❌ Нет токена. Используй /start и /auth.")
         return

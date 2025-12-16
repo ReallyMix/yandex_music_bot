@@ -2,7 +2,7 @@ import logging
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from functools import wraps
 
-from ..storage import user_tokens
+from ..storage import get_token, has_token, set_token, remove_token
 from ..services import ym_service
 
 logger = logging.getLogger(__name__)
@@ -45,13 +45,21 @@ def _format_track_id_for_lyrics(track) -> str:
             return f"{tid}:{aid}"
     return str(tid)
 
-def has_token(user_id: int) -> bool:
-    """Проверка наличия токена"""
-    return user_id in user_tokens
+# Экспортируем has_token для использования в других модулях
+__all__ = [
+    "require_auth", 
+    "_effective_user_id_from_message", 
+    "_format_track_id_for_lyrics",
+    "has_token",
+    "get_client",
+    "AUTH_URL",
+    "_get_account_uid",
+    "_get_playlist_tracks_by_kind"
+]
 
 def get_client(user_id: int):
     """Получение клиента Яндекс.Музыки"""
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)
     if not token:
         return None
     return ym_service.get_client(token, user_id)
@@ -106,4 +114,3 @@ async def _get_playlist_tracks_by_kind(token: str, user_id: int, kind: int):
 
     fetched = ym_service._fetch_tracks(client, ids)  # type: ignore[attr-defined]
     return direct_tracks + [t for t in fetched if t is not None]
-

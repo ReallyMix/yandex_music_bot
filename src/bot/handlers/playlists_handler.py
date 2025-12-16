@@ -4,10 +4,8 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 
 from .common import require_auth, _effective_user_id_from_message, _get_playlist_tracks_by_kind
-from ..storage import user_tokens
+from ..storage import get_token
 from ..services import ym_service
-
-
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -17,7 +15,7 @@ async def show_playlists_callback(callback: CallbackQuery):
     await callback.answer()
     await show_playlists(callback.message, callback.from_user.id)
 
-@router.message(F.text == "📁 Плейлисты")
+@router.message(F.text == "Плейлисты")
 @router.message(Command("playlists"))
 @require_auth
 async def playlists_command(message: Message):
@@ -26,7 +24,7 @@ async def playlists_command(message: Message):
 async def show_playlists(message: Message, user_id: int):
     status_msg = await message.answer("📁 Загружаю плейлисты...")
 
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
     if not token:
         await status_msg.edit_text("✗ Ошибка авторизации")
         return
@@ -80,7 +78,7 @@ async def playlist_open_callback(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    token = user_tokens.get(user_id)
+    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
     if not token:
         await callback.message.answer("✗ Нет токена. Используй /start и /auth.")
         return

@@ -1,4 +1,0 @@
-#sqlalchemy?
-
-class User:
-    pass

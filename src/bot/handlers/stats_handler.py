@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 
 from .common import require_auth, _effective_user_id_from_message
-from ..storage import get_token  # ИЗМЕНЕНО ЗДЕСЬ
+from ..storage import get_token
 from ..services import ym_service
 
 router = Router()
@@ -23,25 +23,20 @@ async def stats_command(message: Message):
 async def show_stats(message: Message, user_id: int):
     status_msg = await message.answer("📊 Собираю статистику...")
 
-    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
+    token = get_token(user_id)
     if not token:
         await status_msg.edit_text("✗ Ошибка авторизации")
         return
 
     try:
-        # services.YandexMusicService: get_user_statistics
+        # Получаем статистику от сервиса Яндекс.Музыки
         data = await ym_service.get_user_statistics(token, user_id)
-
+        
         text = "📊 <b>Твоя статистика</b>\n"
         text += f"❤️ Лайкнутых треков: {data.get('liked_tracks_count', 0)}\n"
-        text += f"🕐 Лайков за 30 дней: {data.get('recent_likes_last_month', 0)}\n"
+        text += f"🕐 Лайков за 30 дней: {data.get('recent_likes_last_month', 0)}\n\n"
 
-        lm = data.get("listening_minutes", 0) or 0
-        text += (
-            f"🎧 Прослушивание: {lm.get('week', 0)} мин за неделю, "
-            f"{lm.get('month', 0)} мин за месяц\n\n"
-        )
-
+        # Обработка топ-артистов
         top_artists = data.get("top_artists") or []
         if top_artists:
             text += "👨‍🎤 <b>Топ артистов:</b>\n"
@@ -49,6 +44,7 @@ async def show_stats(message: Message, user_id: int):
                 text += f"{i}. {item.get('name')} — {item.get('count')} треков\n"
             text += "\n"
 
+        # Обработка топ-жанров за последнее время
         top_genres_recent = data.get("top_genres_recent") or []
         if top_genres_recent:
             text += "🎵 <b>Жанры (недавние):</b>\n"
@@ -56,6 +52,7 @@ async def show_stats(message: Message, user_id: int):
                 text += f"{i}. {item.get('name')} — {item.get('count')}\n"
             text += "\n"
 
+        # Обработка топ-жанров из библиотеки
         top_genres_library = data.get("top_genres_library") or []
         if top_genres_library:
             text += "🎵 <b>Жанры (библиотека):</b>\n"
@@ -63,6 +60,7 @@ async def show_stats(message: Message, user_id: int):
                 text += f"{i}. {item.get('name')} — {item.get('count')}\n"
             text += "\n"
 
+        # Отправляем отформатированную статистику с кнопкой "Назад"
         await status_msg.edit_text(
             text,
             reply_markup=InlineKeyboardMarkup(

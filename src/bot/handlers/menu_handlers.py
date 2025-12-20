@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 
 from .common import require_auth, _effective_user_id_from_message, get_client, AUTH_URL
-from ..storage import has_token  # Добавляем импорт has_token из storage
+from ..storage import has_token
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ async def open_search_callback(callback: CallbackQuery):
     await _send_search_prompt(callback.message)
 
 async def _send_music_menu(message: Message) -> None:
+    # 🔄 Добавляем кнопку "Назад" в самый конец клавиатуры
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -43,6 +44,8 @@ async def _send_music_menu(message: Message) -> None:
                 InlineKeyboardButton(text="💿 Альбомы", callback_data="show_albums"),
             ],
             [InlineKeyboardButton(text="📊 Статистика", callback_data="show_stats")],
+            # 🔙 Новая строка с кнопкой "Назад" - возвращает в главное меню
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_main")]
         ]
     )
     await message.answer("♪ <b>Моя музыка</b>\nВыбери раздел:", reply_markup=keyboard)
@@ -76,3 +79,31 @@ async def back_to_music_callback(callback: CallbackQuery):
         await callback.message.answer("✗ Требуется авторизация. Используй /start.")
         return
     await _send_music_menu(callback.message)
+
+# 🔄 НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "НАЗАД" В ГЛАВНОЕ МЕНЮ
+@router.callback_query(F.data == "back_to_main")
+async def back_to_main_callback(callback: CallbackQuery):
+    """
+    Возвращает пользователя в главное меню бота
+    (этап, который был до меню "Моя музыка")
+    """
+    await callback.answer()
+    
+    # 📱 Создаем клавиатуру главного меню
+    # (предполагаем, что это основное меню бота с основными командами)
+    main_menu_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎵 Моя музыка", callback_data="open_music_menu")],
+            [InlineKeyboardButton(text="🔍 Поиск музыки", callback_data="open_search")],
+            [InlineKeyboardButton(text="🔑 Авторизация", callback_data="auth")],
+            [InlineKeyboardButton(text="❓ Помощь", callback_data="help")],
+            [InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings")]
+        ]
+    )
+    
+    # ✉️ Отправляем сообщение с главным меню
+    await callback.message.answer(
+        "🏠 <b>Главное меню</b>\n\n"
+        "Выберите действие:",
+        reply_markup=main_menu_keyboard
+    )

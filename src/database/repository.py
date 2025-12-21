@@ -10,12 +10,5 @@ class UserToken(Base):
     nickname = Column(String, primary_key=True)
     token = Column(String, nullable=False)
 
-class ServiceData(Base):
-    __tablename__ = "service_data"
-
-    token = Column(String, ForeignKey("user_tokens.token"), primary_key=True)
-    data_field = Column(String)
-
-    token_ref = relationship("UserToken", back_populates="service_info")
 
 Base.metadata.create_all(engine)

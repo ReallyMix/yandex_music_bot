@@ -1,147 +1,205 @@
 import logging
-from typing import Optional
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
-from yandex_music import Client
+from aiogram.types import CallbackQuery, Message
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 
-from ..storage import get_token  # ИЗМЕНЕНО ЗДЕСЬ
+from ...database.storage import get_token
+from ..services import ym_service
+from ..keyboards.main_menu import get_back_button
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-async def get_song_lyrics(token: str, user_id: int, track_id: str) -> Optional[str]:
-    """
-    Получение текста песни через Yandex Music API
-    """
-    try:
-        # Создаем клиент Yandex Music с токеном пользователя
-        client = Client(token).init()
-        
-        # Получаем информацию о треке
-        tracks = client.tracks([track_id])
-        if not tracks or len(tracks) == 0:
-            logger.error(f"Трек с ID {track_id} не найден")
-            return None
 
-        track = tracks[0]
+class LyricsStates(StatesGroup):
+    waiting_for_track_query = State()
 
-        # Получаем информацию о тексте песни
-        lyrics = track.get_lyrics()
-        if lyrics is None:
-            logger.warning(f"Текст песни недоступен для трека {track_id}")
-            return None
 
-        # Получаем полный текст
-        full_lyrics = lyrics.full_lyrics
-        if full_lyrics is None:
-            logger.warning(f"Полный текст песни недоступен для трека {track_id}")
-            return None
-
-        logger.info(f"Получен текст песни для трека {track_id}")
-        return full_lyrics
-
-    except Exception as e:
-        logger.error(f"Ошибка при получении текста песни для трека {track_id}: {e}")
-        return None
-
-@router.callback_query(F.data.startswith("lyrics:"))
-async def lyrics_callback(callback: CallbackQuery):
-    """
-    Обработчик callback-запросов для получения текста песни
-    """
+@router.callback_query(F.data == "menu_lyrics")
+async def lyrics_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    user_id = callback.from_user.id
 
-    # Получаем токен пользователя из хранилища
+    user_id = callback.from_user.id
     token = get_token(user_id)
+
     if not token:
-        await callback.message.answer(
-            "❌ Нет токена авторизации Yandex Music. "
-            "Используйте /start и /auth для авторизации."
+        await callback.message.edit_text(
+            "❌ Вы не авторизованы. Используйте /auth",
+            reply_markup=get_back_button()
         )
         return
 
-    # Извлекаем ID трека из callback-данных
-    # Формат данных: "lyrics:track_123456"
-    track_id = callback.data.split(":", 1)[1]
-    
-    if not track_id:
-        await callback.message.answer("❌ Не указан ID трека")
+    await state.set_state(LyricsStates.waiting_for_track_query)
+    await callback.message.edit_text(
+        "🎵 <b>Получить текст песни</b>\n\n"
+        "Отправьте название трека или ID.\n\n"
+        "<b>Примеры:</b>\n"
+        "• <code>Imagine Dragons Believer</code>\n"
+        "• <code>Платина Валентина</code>\n"
+        "• <code>Платина - ХТТ</code>\n"
+        "• <code>33311009:5568718</code> (ID трека)\n\n"
+        "<b>ID из URL:</b>\n"
+        "<code>music.yandex.ru/album/5568718/track/33311009</code>\n"
+        "→ <code>33311009:5568718</code>\n\n"
+        "Для отмены используйте /cancel",
+        reply_markup=get_back_button()
+    )
+
+
+@router.message(LyricsStates.waiting_for_track_query)
+async def receive_track_query(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    token = get_token(user_id)
+    query = (message.text or "").strip()
+
+    if not token:
+        await message.answer(
+            "❌ Вы не авторизованы. Используйте /auth",
+            reply_markup=get_back_button()
+        )
+        await state.clear()
         return
 
+    if not query:
+        await message.answer(
+            "❌ Пустой запрос.\n\n"
+            "Отправьте название трека или ID.",
+            reply_markup=get_back_button()
+        )
+        return
+
+    status_msg = await message.answer("🔍 Ищу трек...")
+
     try:
-        # Получаем текст песни через API Yandex Music
-        lyrics = await get_song_lyrics(token, user_id, track_id)
-        
-        if not lyrics:
-            await callback.message.answer(
-                "📭 Текст песни не найден.\n\n"
-                "Возможные причины:\n"
-                "• Текст недоступен для этого трека\n"
-                "• Трек не существует или удален\n"
-                "• Ограничения прав доступа к контенту"
+        from yandex_music import Client
+        client = Client(token).init()
+
+        track_id = None
+        track_title = "Трек"
+
+        if ':' in query or (query.replace('-', '').replace('_', '').isdigit() and len(query) > 5):
+            track_id = query.strip()
+            logger.info(f"[lyrics] Используем прямой ID: {track_id}")
+
+            try:
+                tracks = client.tracks([track_id])
+                if not tracks:
+                    raise RuntimeError("Трек не найден по ID")
+
+                track = tracks[0]
+                artists = getattr(track, "artists", []) or []
+                artist_name = artists[0].name if artists else "Unknown"
+                track_title = f"{artist_name} - {track.title}"
+                await status_msg.edit_text(
+                    f"✅ Найден: <b>{track_title}</b>\n\n🎵 Получаю текст...",
+                    reply_markup=get_back_button()
+                )
+            except Exception as e:
+                logger.warning(f"[lyrics] Не удалось получить трек по ID {track_id}: {e}")
+                await status_msg.edit_text(
+                    f"❌ Трек не найден по ID.\n\n"
+                    f"🆔 <code>{track_id}</code>\n\n"
+                    "Проверьте формат: <code>track_id:album_id</code>",
+                    reply_markup=get_back_button()
+                )
+                await state.clear()
+                return
+        else:
+            await status_msg.edit_text("🔍 Ищу трек по названию...", reply_markup=get_back_button())
+
+            clean_query = (
+                query.replace('"', '')
+                     .replace("'", "")
+                     .replace('«', '')
+                     .replace('»', '')
+                     .strip()
             )
+
+            search_result = client.search(clean_query, type_="track")
+            if not search_result or not search_result.tracks or not search_result.tracks.results:
+                await status_msg.edit_text(
+                    "❌ <b>Трек не найден</b>\n\n"
+                    f"Запрос: <code>{query}</code>\n\n"
+                    "Попробуйте:\n"
+                    "• Добавить исполнителя\n"
+                    "• Убрать лишние символы\n"
+                    "• Написать более точно",
+                    reply_markup=get_back_button()
+                )
+                await state.clear()
+                return
+
+            track = search_result.tracks.results[0]
+
+            albums = getattr(track, "albums", []) or []
+            if albums:
+                track_id = f"{track.id}:{albums[0].id}"
+            else:
+                track_id = str(track.id)
+
+            artists = getattr(track, "artists", []) or []
+            artist_name = artists[0].name if artists else "Неизвестный исполнитель"
+            track_title = f"{artist_name} - {track.title}"
+
+            logger.info(f"[lyrics] Найден трек: {track_title} ({track_id})")
+            await status_msg.edit_text(
+                f"✅ Найден: <b>{track_title}</b>\n\n🎵 Получаю текст...",
+                reply_markup=get_back_button()
+            )
+
+        if not track_id:
+            await status_msg.edit_text(
+                "❌ Не удалось определить ID трека.",
+                reply_markup=get_back_button()
+            )
+            await state.clear()
             return
 
-        # Разбиваем текст на части (Telegram имеет ограничение на длину сообщения)
-        chunk_size = 4000  # Оставляем запас для HTML-разметки и эмодзи
-        lyrics_parts = []
-        
-        if len(lyrics) > chunk_size:
-            # Разбиваем на абзацы или по предложениям для лучшей читаемости
-            paragraphs = lyrics.split('\n\n')
-            current_part = ""
-            
-            for paragraph in paragraphs:
-                if len(current_part) + len(paragraph) + 2 > chunk_size:
-                    if current_part:
-                        lyrics_parts.append(current_part)
-                    current_part = paragraph
-                else:
-                    if current_part:
-                        current_part += "\n\n" + paragraph
-                    else:
-                        current_part = paragraph
-            
-            if current_part:
-                lyrics_parts.append(current_part)
-        else:
-            lyrics_parts = [lyrics]
+        lyrics = await ym_service.get_song_lyrics(token, user_id, track_id)
 
-        # Отправляем текст песни частями
-        for i, part in enumerate(lyrics_parts):
-            if i == 0:
-                message_text = (
-                    "🎵 <b>Текст песни</b>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"{part}"
+        if not isinstance(lyrics, str) or not lyrics.strip():
+            await status_msg.edit_text(
+                f"❌ <b>Текст не найден</b>\n\n"
+                f"🎵 {track_title}\n"
+                f"🆔 <code>{track_id}</code>\n\n"
+                "Причины:\n"
+                "• У трека нет текста в базе\n"
+                "• Инструментал\n"
+                "• Региональные ограничения\n\n"
+                "Попробуйте другой трек.",
+                reply_markup=get_back_button()
+            )
+            await state.clear()
+            return
+
+        text = lyrics.strip()
+        header = f"🎵 <b>{track_title}</b>\n🆔 <code>{track_id}</code>\n\n"
+
+        if len(text) > 3800:
+            await status_msg.edit_text(
+                header + "📄 Текст длинный, отправляю частями:",
+                reply_markup=get_back_button()
+            )
+            parts = [text[i:i + 3800] for i in range(0, len(text), 3800)]
+            for idx, part in enumerate(parts, 1):
+                await message.answer(
+                    f"<pre>Часть {idx}/{len(parts)}\n\n{part}</pre>"
                 )
-            else:
-                message_text = part
-            
-            if len(lyrics_parts) > 1:
-                message_text += f"\n\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\nЧасть {i + 1} из {len(lyrics_parts)}"
-            
-            await callback.message.answer(message_text, parse_mode="HTML")
+        else:
+            await status_msg.edit_text(
+                f"{header}<pre>{text}</pre>",
+                reply_markup=get_back_button()
+            )
+
+        logger.info(f"[lyrics] Текст отправлен пользователю {user_id}: {track_title}")
+        await state.clear()
 
     except Exception as e:
-        logger.error(f"Ошибка получения текста песни: {e}", exc_info=True)
-        
-        # Более понятные сообщения об ошибках для пользователя
-        error_message = str(e).lower()
-        if "token" in error_message or "авториз" in error_message:
-            await callback.message.answer(
-                "🔑 Проблема с авторизацией Yandex Music.\n"
-                "Возможно, токен устарел. Попробуйте авторизоваться заново командой /auth"
-            )
-        elif "network" in error_message or "сеть" in error_message or "timeout" in error_message:
-            await callback.message.answer(
-                "🌐 Проблема с сетью или Yandex Music API временно недоступен.\n"
-                "Пожалуйста, попробуйте позже."
-            )
-        else:
-            await callback.message.answer(
-                f"⚠️ Произошла ошибка при получении текста песни:\n"
-                f"<code>{str(e)[:200]}</code>",
-                parse_mode="HTML"
-            )
+        logger.error(f"[lyrics] Ошибка: {e}", exc_info=True)
+        await status_msg.edit_text(
+            "❌ <b>Ошибка при получении текста</b>\n\n"
+            f"<code>{str(e)[:200]}</code>",
+            reply_markup=get_back_button()
+        )
+        await state.clear()

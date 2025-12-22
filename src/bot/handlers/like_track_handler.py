@@ -4,16 +4,20 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
+
 from ...database.storage import get_token
 from ..services import ym_service
 from ..keyboards.main_menu import get_back_button
+
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 
+
 class LikeTrackStates(StatesGroup):
     waiting_for_track_query = State()
+
 
 
 @router.callback_query(F.data == "menu_like_track")
@@ -33,16 +37,14 @@ async def like_track_callback(callback: CallbackQuery, state: FSMContext):
     await state.set_state(LikeTrackStates.waiting_for_track_query)
     await callback.message.edit_text(
         "❤️ <b>Лайкнуть трек</b>\n\n"
-        "Отправьте название трека или ID.\n\n"
+        "Отправьте название трека.\n\n"
         "<b>Примеры:</b>\n"
         "• <code>Imagine Dragons Believer</code>\n"
-        "• <code>The Weeknd Blinding Lights</code>\n"
-        "• <code>Моргенштерн</code>\n"
-        "• <code>67890:12345</code> (ID трека)\n\n"
-        "💡 Можно писать без дефисов и кавычек\n\n"
-        "Для отмены используйте /cancel",
+        "• <code>The Weeknd Blinding Lights</code>\n\n"
+        "💡 Можно писать без дефисов и кавычек",
         reply_markup=get_back_button()
     )
+
 
 
 @router.message(LikeTrackStates.waiting_for_track_query)
@@ -88,8 +90,7 @@ async def receive_track_query(message: Message, state: FSMContext):
                     "• Использовать только название песни\n\n"
                     "Примеры хороших запросов:\n"
                     "• <code>Imagine Dragons Believer</code>\n"
-                    "• <code>The Weeknd Blinding</code>\n"
-                    "• <code>Моргенштерн Cadillac</code>",
+                    "• <code>The Weeknd Blinding</code>",
                     reply_markup=get_back_button()
                 )
                 await state.clear()
@@ -113,8 +114,7 @@ async def receive_track_query(message: Message, state: FSMContext):
             
             success_text = "✅ <b>Трек лайкнут!</b>\n\n"
             if track_info:
-                success_text += f"🎵 {track_info}\n"
-            success_text += f"🆔 ID: <code>{track_id}</code>"
+                success_text += f"🎵 {track_info}"
             
             await status_msg.edit_text(
                 success_text,
@@ -129,15 +129,13 @@ async def receive_track_query(message: Message, state: FSMContext):
             if 'already' in error_msg or 'exist' in error_msg:
                 await status_msg.edit_text(
                     f"ℹ️ <b>Трек уже в ваших лайках</b>\n\n"
-                    f"🎵 {track_info if track_info else query}\n"
-                    f"🆔 ID: <code>{track_id}</code>",
+                    f"🎵 {track_info if track_info else query}",
                     reply_markup=get_back_button()
                 )
             else:
                 await status_msg.edit_text(
                     f"❌ <b>Не удалось лайкнуть</b>\n\n"
-                    f"🎵 {track_info if track_info else query}\n"
-                    f"🆔 ID: <code>{track_id}</code>\n\n"
+                    f"🎵 {track_info if track_info else query}\n\n"
                     f"Ошибка: <code>{str(like_error)[:100]}</code>",
                     reply_markup=get_back_button()
                 )
@@ -152,8 +150,7 @@ async def receive_track_query(message: Message, state: FSMContext):
             f"Описание: <code>{str(e)[:150]}</code>\n\n"
             "Попробуйте:\n"
             "• Написать название по-другому\n"
-            "• Использовать только ключевые слова\n"
-            "• Указать прямой ID трека",
+            "• Использовать только ключевые слова",
             reply_markup=get_back_button()
         )
         await state.clear()

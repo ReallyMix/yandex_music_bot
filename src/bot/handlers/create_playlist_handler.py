@@ -33,8 +33,7 @@ async def create_playlist_callback(callback: CallbackQuery, state: FSMContext):
     await state.set_state(CreatePlaylistStates.waiting_for_title)
     await callback.message.edit_text(
         "➕ <b>Создать плейлист</b>\n\n"
-        "Отправьте название нового плейлиста.\n\n"
-        "Для отмены используйте /cancel",
+        "Отправьте название нового плейлиста.",
         reply_markup=get_back_button()
     )
 
@@ -48,7 +47,7 @@ async def receive_playlist_title(message: Message, state: FSMContext):
     if len(title) > 100:
         await message.answer(
             "❌ Название слишком длинное. Максимум 100 символов.\n"
-            "Попробуйте ещё раз или /cancel для отмены."
+            "Попробуйте ещё раз."
         )
         return
 
@@ -60,8 +59,7 @@ async def receive_playlist_title(message: Message, state: FSMContext):
         if result:
             await status_msg.edit_text(
                 f"✅ <b>Плейлист создан!</b>\n\n"
-                f"📁 Название: <b>{result['title']}</b>\n"
-                f"🆔 Kind: <code>{result['kind']}</code>",
+                f"📁 Название: <b>{result['title']}</b>",
                 reply_markup=get_back_button()
             )
         else:

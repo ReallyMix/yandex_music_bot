@@ -18,7 +18,7 @@ class TestYandexMusicStatsMixin:
     ):
         """Тест успешного получения количества лайкнутых треков"""
         mock_likes = Mock()
-        mock_likes.tracks = [Mock(), Mock(), Mock()]  # 3 трека
+        mock_likes.tracks = [Mock(), Mock(), Mock()]
 
         mock_client.users_likes_tracks.return_value = mock_likes
 
@@ -433,7 +433,7 @@ class TestYandexMusicStatsMixin:
             ):
                 with patch.object(
                     stats_mixin_with_get_client, "_get_account_uid", return_value=None
-                ):  # Нет uid
+                ):
                     result = (
                         await stats_mixin_with_get_client._get_top_genres_from_library(
                             self.token, self.user_id, limit=5

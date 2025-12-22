@@ -1,356 +1,211 @@
 import logging
 import re
 from urllib.parse import unquote
-
 from aiogram import Router, F
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from yandex_music import Client
 
-from ..keyboards.main_menu import get_main_menu
-from ..storage import set_token, get_token, remove_token, has_token as has_token_storage
+from ...database.storage import set_token, get_token, has_token, remove_token
+from ..keyboards.main_menu import get_main_menu_keyboard, get_auth_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)
 
+AUTH_URL = "https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d"
+
 class AuthStates(StatesGroup):
-    waiting_for_url = State()
+    waiting_for_token = State()
 
-CLIENT_ID = "23cabbbdc6cd418abb4b39c32c41195d"
-AUTH_URL = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={CLIENT_ID}"
-
-@router.message(Command("start"))
+@router.message(CommandStart())
 async def start_handler(message: Message):
-    """Старт бота"""
     user_id = message.from_user.id
-    user_has_token = has_token_storage(user_id)
-
-    if user_has_token:
+    
+    if has_token(user_id):
         await message.answer(
-            "<b>С возвращением!</b>\n\n"
-            "Ты уже авторизован.\n\n"
-            "Используй кнопки меню ниже для работы с Яндекс.Музыкой:",
-            reply_markup=get_main_menu()
+            "👋 С возвращением!\n\n"
+            "Вы уже авторизованы. Выберите действие:",
+            reply_markup=get_main_menu_keyboard()
         )
-        return
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="📱 Получить токен Яндекс.Музыки",
-            url=AUTH_URL
-        )],
-        [InlineKeyboardButton(
-            text="📘 Инструкция по получению токена",
-            callback_data="show_instructions"
-        )]
-    ])
-
-    await message.answer(
-        "<b>Добро пожаловать в бота для Яндекс.Музыки!</b>\n\n"
-        "🔑 Токен не установлен.\n\n"
-        "<b>Как начать:</b>\n"
-        "1. Нажми кнопку «📱 Получить токен».\n"
-        "2. Войди в Яндекс и дай доступ.\n"
-        "3. Скопируй строку с токеном из браузера.\n"
-        "4. Отправь её через /auth.\n\n"
-        "<i>Если токен уже есть — можно сразу использовать /settoken.</i>",
-        reply_markup=keyboard
-    )
-
-@router.callback_query(F.data == "show_instructions")
-async def show_instructions(callback: CallbackQuery):
-    """Подробная инструкция по получению токена (упрощённая)"""
-    await callback.message.answer(
-        "📘 <b>Как получить токен</b>\n\n"
-        "<b>Через браузер на ПК</b>\n"
-        "1. Нажми «📱 Получить токен» или открой ссылку:\n"
-        f"<code>{AUTH_URL}</code>\n\n"
-        "2. Войди в Яндекс и дай доступ Яндекс.Музыке.\n"
-        "3. После входа адрес станет вида:\n"
-        "<code>https://music.yandex.ru/#access_token=ТОКЕН&token_type=bearer...</code>\n\n"
-        "4. Скопируй этот адрес целиком <b>или</b> любой текст, где есть "
-        "<code>access_token=...</code>\n"
-        "(подойдёт <code>#access_token=...</code>, "
-        "<code>access_token%3D...</code> или просто сам токен).\n\n"
-        "5. Отправь строку в бота через:\n"
-        " • <code>/auth ВСТАВЬ_СТРОКУ</code>  или\n"
-        " • команду <code>/auth</code>, а затем отдельным сообщением вставь строку.\n"
-        "Бот сам вырежет токен из этой строки.\n\n"
-        "<b>На телефоне (iOS / Android)</b>\n"
-        "• Открывай ссылку авторизации <b>в Chrome или обычном браузере</b>,\n"
-        "а не во встроенном браузере Telegram, чтобы не перебрасывало в приложение Яндекс.Музыки.\n"
-        "• После входа скопируй адрес страницы или любой текст, где есть <code>access_token=...</code>,\n"
-        "и отправь его в /auth — бот сам вытащит токен.\n\n"
-        "💡 <b>Важно:</b> <code>/auth</code> не требует «чистого» токена.\n"
-        "Достаточно любой строки, внутри которой он есть.",
-        disable_web_page_preview=True
-    )
-    await callback.answer()
+    else:
+        await message.answer(
+            "👋 <b>Добро пожаловать в Yandex Music Bot!</b>\n\n"
+            "Этот бот поможет вам управлять вашей музыкой в Яндекс.Музыке.\n\n"
+            "<b>Возможности:</b>\n"
+            "📁 Просмотр плейлистов\n"
+            "🎵 Получение текста песен\n"
+            "➕ Создание плейлистов\n"
+            "🎼 Добавление треков\n"
+            "❤️ Лайки треков\n"
+            "📊 Статистика прослушивания\n\n"
+            "Для начала работы нужно авторизоваться.\n"
+            "Используйте команду /auth"
+        )
 
 @router.message(Command("auth"))
 async def auth_command(message: Message, state: FSMContext):
-    """Команда для обработки сырой строки с токеном"""
-    args = message.text.split(maxsplit=1)
-
-    if len(args) >= 2:
-        raw_string = args[1].strip()
-        await process_raw_string(message, raw_string)
-    else:
-        await state.set_state(AuthStates.waiting_for_url)
-        await message.answer(
-            "🔴 <b>Отправь строку с токеном</b>\n\n"
-            "Подойдёт любой вариант:\n"
-            "• полный URL из адресной строки после логина,\n"
-            "• любой текст, где внутри есть <code>access_token=...</code>\n"
-            " или токен, начинающийся на <code>y0_</code> / <code>AQ</code>.\n\n"
-            "Бот сам вырежет нужный кусок.\n\n"
-            "Для отмены — /cancel."
-        )
-
-@router.message(AuthStates.waiting_for_url)
-async def process_auth_url(message: Message, state: FSMContext):
-    """Получили строку после /auth"""
-    await state.clear()
-    await process_raw_string(message, message.text.strip())
-
-@router.message(Command("cancel"))
-async def cancel_command(message: Message, state: FSMContext):
-    """Отмена текущего действия"""
-    if await state.get_state() is None:
-        await message.answer("Нечего отменять.")
-        return
-
-    await state.clear()
-    await message.answer("✅ Действие отменено.")
-
-async def process_raw_string(message: Message, raw_string: str):
-    """Обработка сырой строки, извлечение и проверка токена"""
-    status_msg = await message.answer("🔍 Ищу токен в строке...")
-
-    token = extract_token_from_raw(raw_string)
-
-    if not token:
-        await status_msg.edit_text(
-            "✗ <b>Токен не найден.</b>\n"
-            "Убедись, что в строке есть кусок вида <code>access_token=...</code>\n"
-            "или токен, начинающийся на <code>y0_</code>/<code>AQ</code>.\n"
-            "Попробуй ещё раз: /auth."
-        )
-        return
-
-    await status_msg.edit_text("✅ Токен найден.\n🔐 Проверяю валидность...")
-
-    try:
-        client = Client(token).init()
-        account = client.account_status()
-
-        set_token(message.from_user.id, token)
-        logger.info(f"Токен установлен для пользователя {message.from_user.id}")
-
-        inline_menu = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Моя музыка", callback_data="open_music_menu"),
-                InlineKeyboardButton(text="Поиск", callback_data="open_search")
-            ],
-            [
-                InlineKeyboardButton(text="Мои лайки", callback_data="show_likes"),
-                InlineKeyboardButton(text="Плейлисты", callback_data="show_playlists")
-            ]
-        ])
-
-        await status_msg.edit_text(
-            "✅ <b>Авторизация успешна!</b>\n"
-            f"🔑 Токен: <code>{token[:20]}...{token[-10:]}</code>\n"
-            f"👤 Аккаунт: <code>{account.account.login}</code>\n"
-            f"💎 Подписка: {'Яндекс Плюс ✅' if account.plus else 'Без подписки'}\n"
-            "🎵 Статус: Активен.\n\n"
-            "💡 Выбери, что открыть:",
-            reply_markup=inline_menu
-        )
-
-    except Exception as e:
-        logger.error(f"Ошибка валидации токена: {e}")
-        await status_msg.edit_text(
-            "✗ <b>Найденный токен не сработал.</b>\n"
-            f"Ошибка: <code>{str(e)}</code>\n\n"
-            "Попробуй получить токен ещё раз и отправить другую строку через /auth."
-        )
-
-@router.message(Command("settoken"))
-async def settoken_command(message: Message):
-    """Установка токена, если пользователь присылает его вручную"""
-    args = message.text.split(maxsplit=1)
-
-    if len(args) < 2:
-        await message.answer(
-            "✗ <b>Неверный формат.</b>\n"
-            "Используй: <code>/settoken ВАШ_ТОКЕН_ИЛИ_СТРОКА</code>\n\n"
-            "Можно прислать:\n"
-            "• чистый токен (начинается с <code>y0_</code> или <code>AQ</code>),\n"
-            "• полный URL с <code>#access_token=...</code>,\n"
-            "• строку с <code>access_token%3D...</code>.\n\n"
-            "Но проще использовать /auth — он работает с любыми строками."
-        )
-        return
-
-    token_input = args[1].strip()
-    token = None
-
-    if 'access_token=' in token_input:
-        match = re.search(r'#access_token=([^&\s]+)', token_input)
-        if match:
-            token = match.group(1)
-    elif 'access_token%3D' in token_input:
-        decoded = unquote(token_input)
-        match = re.search(r'#access_token=([^&\s]+)', decoded)
-        if match:
-            token = match.group(1)
-    elif re.match(r'^(y0_|AQ)[A-Za-z0-9_-]{30,}$', token_input):
-        token = token_input
-    else:
-        match = re.search(r'(y0_[A-Za-z0-9_-]{30,})|(AQ[A-Za-z0-9_-]{30,})', token_input)
-        if match:
-            token = match.group(1)
-
-    if not token:
-        await message.answer(
-            "✗ <b>Не удалось вытащить токен.</b>\n"
-            "Проверь, что в тексте есть токен или используй /auth — он проще."
-        )
-        return
-
-    status_msg = await message.answer("🔐 Проверяю токен...")
-
-    try:
-        client = Client(token).init()
-        account = client.account_status()
-
-        set_token(message.from_user.id, token)
-        logger.info(f"Токен установлен для пользователя {message.from_user.id}")
-
-        inline_menu = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Моя музыка", callback_data="open_music_menu"),
-                InlineKeyboardButton(text="Поиск", callback_data="open_search")
-            ],
-            [
-                InlineKeyboardButton(text="Мои лайки", callback_data="show_likes"),
-                InlineKeyboardButton(text="Плейлисты", callback_data="show_playlists")
-            ]
-        ])
-
-        await status_msg.edit_text(
-            "✅ <b>Авторизация успешна!</b>\n"
-            f"👤 Аккаунт: <code>{account.account.login}</code>\n"
-            f"💎 Подписка: {'Яндекс Плюс ✅' if account.plus else 'Без подписки'}\n"
-            "🎵 Статус: Активен.\n\n"
-            "💡 Выбери, что открыть:",
-            reply_markup=inline_menu
-        )
-
-    except Exception as e:
-        logger.error(f"Ошибка валидации токена: {e}")
-        await status_msg.edit_text(
-            "✗ <b>Токен не прошёл проверку.</b>\n"
-            f"Ошибка: <code>{str(e)}</code>\n"
-            "Попробуй получить новый токен и отправить его снова."
-        )
-
-@router.message(Command("check"))
-async def check_command(message: Message):
-    """Проверка сохранённого токена"""
     user_id = message.from_user.id
-    token = get_token(user_id)
-
-    if not token:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Получить токен", url=AUTH_URL)]
-        ])
+    
+    if has_token(user_id):
         await message.answer(
-            "✗ Токен не установлен.\n\n"
-            "Используй /auth или /settoken для авторизации.",
-            reply_markup=keyboard
+            "✅ Вы уже авторизованы!\n\n"
+            "Для выхода используйте /logout",
+            reply_markup=get_main_menu_keyboard()
         )
         return
-
-    try:
-        client = Client(token).init()
-        account = client.account_status()
-
+    
+    args = message.text.split(maxsplit=1)
+    
+    if len(args) >= 2:
+        raw_token = args[1].strip()
+        await process_token(message, raw_token, state)
+    else:
+        await state.set_state(AuthStates.waiting_for_token)
         await message.answer(
-            "✅ <b>Токен действителен.</b>\n"
-            f"👤 Аккаунт: <code>{account.account.login}</code>\n"
-            f"💎 Подписка: {'Яндекс Плюс' if account.plus else 'Без подписки'}"
-        )
-
-    except Exception as e:
-        logger.error(f'Ошибка проверки токена: {e}')
-        remove_token(user_id)
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Получить новый токен", url=AUTH_URL)]
-        ])
-
-        await message.answer(
-            "✗ Токен недействителен или истёк.\n\n"
-            f"Ошибка: <code>{str(e)}</code>\n\n"
-            "Нужно получить новый токен и снова выполнить /auth.",
-            reply_markup=keyboard
+            "🔑 <b>Авторизация</b>\n\n"
+            "1. Нажмите кнопку 'Получить токен' ниже\n"
+            "2. Войдите в аккаунт Яндекс\n"
+            "3. Разрешите доступ приложению\n"
+            "4. Скопируйте URL из адресной строки\n"
+            "5. Отправьте его боту\n\n"
+            "URL будет выглядеть так:\n"
+            "<code>https://music.yandex.ru/#access_token=...</code>\n\n"
+            "Отправьте весь URL или только токен.",
+            reply_markup=get_auth_keyboard(AUTH_URL)
         )
 
 @router.message(Command("logout"))
-async def logout_command(message: Message):
-    """Удаление токена"""
+async def logout_command(message: Message, state: FSMContext):
     user_id = message.from_user.id
-
-    if has_token_storage(user_id):
-        remove_token(user_id)
-        logger.info(f"Токен удалён для пользователя {user_id}")
+    
+    if not has_token(user_id):
         await message.answer(
-            "✅ Токен удалён.\n\n"
-            "Для новой авторизации используй /start и /auth."
+            "❌ Вы еще не авторизованы.\n\n"
+            "Используйте /auth для входа."
         )
-    else:
-        await message.answer("✗ У тебя нет сохранённого токена.")
+        return
+    
+    remove_token(user_id)
+    await state.clear()
+    
+    logger.info(f"Пользователь {user_id} разлогинился")
+    
+    await message.answer(
+        "👋 <b>Вы вышли из аккаунта</b>\n\n"
+        "Ваш токен удален.\n"
+        "Все ваши данные остались в Яндекс.Музыке.\n\n"
+        "Для повторной авторизации используйте /auth\n"
+        "Справка: /help"
+    )
 
-def extract_token_from_raw(raw_string: str) -> str | None:
-    """Извлечение токена из сырой строки любого формата"""
+@router.callback_query(F.data == "auth_help")
+async def auth_help_callback(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "📘 <b>Подробная инструкция</b>\n\n"
+        "1️⃣ Перейдите по ссылке (кнопка 'Получить токен')\n"
+        "2️⃣ Войдите в свой аккаунт Яндекс\n"
+        "3️⃣ Нажмите 'Разрешить'\n"
+        "4️⃣ Вас перенаправит на music.yandex.ru\n"
+        "5️⃣ В адресной строке будет длинный URL вида:\n\n"
+        "<code>https://music.yandex.ru/#access_token=ТОКЕН&token_type=bearer...</code>\n\n"
+        "6️⃣ Скопируйте ВЕСЬ этот URL\n"
+        "7️⃣ Отправьте его мне\n\n"
+        "Бот автоматически вытащит токен из URL."
+    )
+
+@router.message(AuthStates.waiting_for_token)
+async def receive_token(message: Message, state: FSMContext):
+    await process_token(message, message.text.strip(), state)
+
+async def process_token(message: Message, raw_string: str, state: FSMContext):
+    status_msg = await message.answer("🔍 Проверяю токен...")
+    
+    token = extract_token(raw_string)
+    
+    if not token:
+        await status_msg.edit_text(
+            "❌ Не удалось найти токен в вашем сообщении.\n\n"
+            "Отправьте URL после авторизации или только токен.\n"
+            "Попробуйте ещё раз."
+        )
+        return
+    
+    try:
+        client = Client(token).init()
+        account = client.account_status()
+        
+        set_token(message.from_user.id, token)
+        await state.clear()
+        
+        logger.info(f"Токен установлен для пользователя {message.from_user.id}")
+        
+        await status_msg.edit_text(
+            f"✅ <b>Авторизация успешна!</b>\n\n"
+            f"👤 Аккаунт: <code>{account.account.login}</code>\n"
+            f"💎 Подписка: {'Яндекс Плюс ✅' if account.plus else 'Без подписки'}\n\n"
+            "Выберите действие:",
+            reply_markup=get_main_menu_keyboard()
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка проверки токена: {e}")
+        await status_msg.edit_text(
+            f"❌ <b>Ошибка авторизации</b>\n\n"
+            f"Токен недействителен или истек.\n\n"
+            f"Ошибка: <code>{str(e)[:100]}</code>\n\n"
+            "Попробуйте получить новый токен через /auth"
+        )
+
+def extract_token(raw_string: str) -> str | None:
     clean_string = ''.join(raw_string.split())
-
+    
     patterns = [
         r'access_token=([A-Za-z0-9_-]{30,})',
         r'access_token%3D([A-Za-z0-9_-]{30,})',
         r'access_token%253D([A-Za-z0-9_-]{30,})',
     ]
-
+    
     for pattern in patterns:
         match = re.search(pattern, clean_string)
         if match:
             return match.group(1)
-
+    
     try:
-        decoded_once = unquote(clean_string)
+        decoded = unquote(clean_string)
         for pattern in patterns[:2]:
-            match = re.search(pattern, decoded_once)
+            match = re.search(pattern, decoded)
             if match:
                 return match.group(1)
-
-        decoded_twice = unquote(decoded_once)
-        for pattern in patterns[:2]:
-            match = re.search(pattern, decoded_twice)
-            if match:
-                return match.group(1)
-    except Exception as e:
-        logger.warning(f"Ошибка декодирования URL: {e}")
-
-    direct_match = re.search(r'\b(y0_[A-Za-z0-9_-]{30,})|AQ[A-Za-z0-9_-]{30,})\b', clean_string)
+    except:
+        pass
+    
+    direct_match = re.search(r'\b(y0_[A-Za-z0-9_-]{30,})\b', clean_string)
     if direct_match:
         return direct_match.group(1)
-
-    fallback_match = re.search(r'(y0_[A-Za-z0-9_-]{30,})|AQ[A-Za-z0-9_-]{30,})', clean_string)
-    if fallback_match:
-        return fallback_match.group(1)
-
+    
+    fallback = re.search(r'(y0_[A-Za-z0-9_-]{30,})|(AQ[A-Za-z0-9_-]{30,})', clean_string)
+    if fallback:
+        return fallback.group(1) or fallback.group(2)
+    
     return None
+
+@router.callback_query(F.data == "back_to_menu")
+async def back_to_menu_callback(callback: CallbackQuery):
+    await callback.answer()
+    
+    user_id = callback.from_user.id
+    
+    if not has_token(user_id):
+        await callback.message.edit_text(
+            "❌ Вы не авторизованы.\n\n"
+            "Используйте /auth для входа."
+        )
+        return
+    
+    await callback.message.edit_text(
+        "📱 <b>Главное меню</b>\n\nВыберите действие:",
+        reply_markup=get_main_menu_keyboard()
+    )

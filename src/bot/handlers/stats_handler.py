@@ -1,77 +1,72 @@
 import logging
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
+from aiogram.types import CallbackQuery
 
-from .common import require_auth, _effective_user_id_from_message
-from ..storage import get_token  # ИЗМЕНЕНО ЗДЕСЬ
+from ...database.storage import get_token
 from ..services import ym_service
+from ..keyboards.main_menu import get_back_button
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-@router.callback_query(F.data == "show_stats")
-async def show_stats_callback(callback: CallbackQuery):
+@router.callback_query(F.data == "menu_stats")
+async def stats_callback(callback: CallbackQuery):
     await callback.answer()
-    await show_stats(callback.message, callback.from_user.id)
 
-@router.message(Command("stats"))
-@require_auth
-async def stats_command(message: Message):
-    await show_stats(message, _effective_user_id_from_message(message))
+    user_id = callback.from_user.id
+    token = get_token(user_id)
 
-async def show_stats(message: Message, user_id: int):
-    status_msg = await message.answer("📊 Собираю статистику...")
-
-    token = get_token(user_id)  # ИЗМЕНЕНО ЗДЕСЬ
     if not token:
-        await status_msg.edit_text("✗ Ошибка авторизации")
+        await callback.message.edit_text(
+            "❌ Вы не авторизованы. Используйте /auth",
+            reply_markup=get_back_button()
+        )
         return
 
+    status_msg = await callback.message.edit_text("📊 Собираю статистику...")
+
     try:
-        # services.YandexMusicService: get_user_statistics
-        data = await ym_service.get_user_statistics(token, user_id)
+        stats = await ym_service.get_user_statistics(token, user_id)
 
-        text = "📊 <b>Твоя статистика</b>\n"
-        text += f"❤️ Лайкнутых треков: {data.get('liked_tracks_count', 0)}\n"
-        text += f"🕐 Лайков за 30 дней: {data.get('recent_likes_last_month', 0)}\n"
+        if not stats:
+            await status_msg.edit_text(
+                "📊 <b>Статистика недоступна</b>\n\n"
+                "Возможно, у вас мало активности или проблемы с доступом.",
+                reply_markup=get_back_button()
+            )
+            return
 
-        lm = data.get("listening_minutes", 0) or 0
-        text += (
-            f"🎧 Прослушивание: {lm.get('week', 0)} мин за неделю, "
-            f"{lm.get('month', 0)} мин за месяц\n\n"
-        )
+        text = "📊 <b>Ваша статистика</b>\n\n"
 
-        top_artists = data.get("top_artists") or []
+        text += f"❤️ Лайкнутых треков: <b>{stats.get('liked_tracks_count', 0):,}</b>\n"
+        text += f"📅 Лайков за месяц: <b>{stats.get('recent_likes_last_month', 0)}</b>\n\n"
+
+        top_artists = stats.get('top_artists', [])
         if top_artists:
-            text += "👨‍🎤 <b>Топ артистов:</b>\n"
-            for i, item in enumerate(top_artists, 1):
-                text += f"{i}. {item.get('name')} — {item.get('count')} треков\n"
+            text += "🎤 <b>Топ артистов:</b>\n"
+            for i, artist in enumerate(top_artists[:5], 1):
+                text += f"  {i}. {artist.get('name', '?')} — {artist.get('count', 0)} треков\n"
             text += "\n"
 
-        top_genres_recent = data.get("top_genres_recent") or []
+        top_genres_recent = stats.get('top_genres_recent', [])
         if top_genres_recent:
-            text += "🎵 <b>Жанры (недавние):</b>\n"
-            for i, item in enumerate(top_genres_recent, 1):
-                text += f"{i}. {item.get('name')} — {item.get('count')}\n"
+            text += "🎵 <b>Топ жанров (90 дней):</b>\n"
+            for i, genre in enumerate(top_genres_recent[:5], 1):
+                text += f"  {i}. {genre.get('name', '?')} — {genre.get('count', 0)} раз\n"
             text += "\n"
 
-        top_genres_library = data.get("top_genres_library") or []
-        if top_genres_library:
-            text += "🎵 <b>Жанры (библиотека):</b>\n"
-            for i, item in enumerate(top_genres_library, 1):
-                text += f"{i}. {item.get('name')} — {item.get('count')}\n"
-            text += "\n"
+        top_genres_lib = stats.get('top_genres_library', [])
+        if top_genres_lib:
+            text += "📚 <b>Топ жанров (библиотека):</b>\n"
+            for i, genre in enumerate(top_genres_lib[:5], 1):
+                text += f"  {i}. {genre.get('name', '?')} — {genre.get('count', 0)} треков\n"
 
-        await status_msg.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_music")]
-                ]
-            ),
-        )
+        await status_msg.edit_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
     except Exception as e:
-        logger.error(f"Ошибка статистики: {e}")
-        await status_msg.edit_text(f"✗ Ошибка: {e}")
+        logger.error(f"Ошибка получения статистики: {e}", exc_info=True)
+        await status_msg.edit_text(
+            f"❌ <b>Ошибка</b>\n\n<code>{str(e)[:150]}</code>",
+            reply_markup=get_back_button(),
+            parse_mode="HTML"
+        )

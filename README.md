@@ -124,7 +124,7 @@ sequenceDiagram
 
 ### tests
 
-Директория `tests` разделена на две меньшие директории: `mixin_tests` и `music_service_tests`. Вних происходят unit-тесты методов из модуля `services`.
+Директория `tests` разделена на две меньшие директории: `mixin_tests` и `music_service_tests`. В них происходят unit-тесты методов из модуля `services`.
 
 
 # Ход работы

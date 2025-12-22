@@ -33,16 +33,10 @@ async def lyrics_callback(callback: CallbackQuery, state: FSMContext):
     await state.set_state(LyricsStates.waiting_for_track_query)
     await callback.message.edit_text(
         "🎵 <b>Получить текст песни</b>\n\n"
-        "Отправьте название трека или ID.\n\n"
+        "Отправьте название трека.\n\n"
         "<b>Примеры:</b>\n"
         "• <code>Imagine Dragons Believer</code>\n"
-        "• <code>Платина Валентина</code>\n"
-        "• <code>Платина - ХТТ</code>\n"
-        "• <code>33311009:5568718</code> (ID трека)\n\n"
-        "<b>ID из URL:</b>\n"
-        "<code>music.yandex.ru/album/5568718/track/33311009</code>\n"
-        "→ <code>33311009:5568718</code>\n\n"
-        "Для отмены используйте /cancel",
+        "• <code>The Weeknd Blinding Lights</code>",
         reply_markup=get_back_button()
     )
 
@@ -64,7 +58,7 @@ async def receive_track_query(message: Message, state: FSMContext):
     if not query:
         await message.answer(
             "❌ Пустой запрос.\n\n"
-            "Отправьте название трека или ID.",
+            "Отправьте название трека.",
             reply_markup=get_back_button()
         )
         return
@@ -98,9 +92,7 @@ async def receive_track_query(message: Message, state: FSMContext):
             except Exception as e:
                 logger.warning(f"[lyrics] Не удалось получить трек по ID {track_id}: {e}")
                 await status_msg.edit_text(
-                    f"❌ Трек не найден по ID.\n\n"
-                    f"🆔 <code>{track_id}</code>\n\n"
-                    "Проверьте формат: <code>track_id:album_id</code>",
+                    f"❌ Трек не найден.",
                     reply_markup=get_back_button()
                 )
                 await state.clear()
@@ -161,8 +153,7 @@ async def receive_track_query(message: Message, state: FSMContext):
         if not isinstance(lyrics, str) or not lyrics.strip():
             await status_msg.edit_text(
                 f"❌ <b>Текст не найден</b>\n\n"
-                f"🎵 {track_title}\n"
-                f"🆔 <code>{track_id}</code>\n\n"
+                f"🎵 {track_title}\n\n"
                 "Причины:\n"
                 "• У трека нет текста в базе\n"
                 "• Инструментал\n"
@@ -174,7 +165,7 @@ async def receive_track_query(message: Message, state: FSMContext):
             return
 
         text = lyrics.strip()
-        header = f"🎵 <b>{track_title}</b>\n🆔 <code>{track_id}</code>\n\n"
+        header = f"🎵 <b>{track_title}</b>\n\n"
 
         if len(text) > 3800:
             await status_msg.edit_text(

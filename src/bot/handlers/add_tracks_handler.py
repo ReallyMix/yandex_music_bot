@@ -53,15 +53,13 @@ async def receive_playlist_title_for_tracks(message: Message, state: FSMContext)
 
     await message.answer(
         f"📁 Плейлист: <b>{playlist_title}</b>\n\n"
-        "Шаг 2: Отправьте названия треков.\n\n"
-        "Можно писать в свободной форме:\n"
+        "Отправьте название трека.\n\n"
+        "<b>Примеры:</b>\n"
         "• <code>Imagine Dragons Believer</code>\n"
-        "• <code>The Weeknd - Blinding Lights</code>\n\n"
-        "Формат ввода:\n"
-        "• каждый трек с новой строки\n"
-        "• или через запятую",
+        "• <code>The Weeknd - Blinding Lights</code>",
         reply_markup=get_back_button()
     )
+
 
 
 @router.message(AddTracksStates.waiting_for_track_names)

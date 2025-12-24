@@ -136,10 +136,6 @@ async def receive_track_names(message: Message, state: FSMContext):
         await state.clear()
 
     except Exception as e:
-        logger.error(f"Ошибка добавления треков: {e}", exc_info=True)
-        await status_msg.edit_text(
-            "❌ <b>Ошибка добавления треков</b>\n\n"
-            f"<code>{str(e)[:200]}</code>",
-            reply_markup=get_back_button()
-        )
+        logger.error(f"Ошибка: {e}", exc_info=True)
+        await status_msg.edit_text("❌ Произошла ошибка")
         await state.clear()

@@ -104,11 +104,7 @@ async def show_playlists_page(callback: CallbackQuery, page: int = 0):
     except Exception as e:
         logger.error(f"Ошибка получения плейлистов: {e}", exc_info=True)
         await callback.message.edit_text(
-            "❌ <b>Ошибка</b>\n\n"
-            "Не удалось загрузить плейлисты.\n\n"
-            f"Описание: <code>{str(e)[:150]}</code>\n\n"
-            "Попробуйте:\n"
-            "• Переавторизоваться (/logout → /auth)\n"
-            "• Повторить попытку позже",
+            "❌ <b>Ошибка загрузки</b>\n"
+            "Попробуйте переавторизоваться или повторить позже",
             reply_markup=get_back_button()
         )

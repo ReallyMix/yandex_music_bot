@@ -66,7 +66,9 @@ async def stats_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Ошибка получения статистики: {e}", exc_info=True)
         await status_msg.edit_text(
-            f"❌ <b>Ошибка</b>\n\n<code>{str(e)[:150]}</code>",
+            "❌ <b>Не удалось получить статистику</b>\n\n"
+            "Произошла ошибка при обработке запроса.\n"
+            "Попробуйте повторить попытку позже или обратитесь в поддержку.",
             reply_markup=get_back_button(),
             parse_mode="HTML"
         )

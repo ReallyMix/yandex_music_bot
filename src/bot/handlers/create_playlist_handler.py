@@ -70,10 +70,12 @@ async def receive_playlist_title(message: Message, state: FSMContext):
 
         await state.clear()
 
-    except Exception as e:
-        logger.error(f"Ошибка создания плейлиста: {e}")
+    except Exception:
+        logger.exception("Ошибка создания плейлиста")
+        
         await status_msg.edit_text(
-            f"❌ <b>Ошибка</b>\n\n{str(e)[:200]}",
+            "❌ Не получилось создать\n"
+            "Попробуйте ещё раз",
             reply_markup=get_back_button()
         )
         await state.clear()

@@ -153,10 +153,10 @@ async def process_token(message: Message, raw_string: str, state: FSMContext):
     except Exception as e:
         logger.error(f"Ошибка проверки токена: {e}")
         await status_msg.edit_text(
-            f"❌ <b>Ошибка авторизации</b>\n\n"
-            f"Токен недействителен или истек.\n\n"
-            f"Ошибка: <code>{str(e)[:100]}</code>\n\n"
-            "Попробуйте получить новый токен через /auth"
+            "❌ <b>Авторизация не выполнена</b>\n\n"
+            "Токен недействителен или истек.\n\n"
+            "Пожалуйста, получите новый токен\n"
+            "через команду /auth и попробуйте снова."
         )
 
 def extract_token(raw_string: str) -> str | None:

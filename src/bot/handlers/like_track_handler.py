@@ -145,12 +145,9 @@ async def receive_track_query(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"Ошибка поиска/лайка трека: {e}", exc_info=True)
         await status_msg.edit_text(
-            f"❌ <b>Ошибка</b>\n\n"
+            f"❌ <b>Не удалось выполнить поиск</b>\n\n"
             f"Запрос: <code>{query}</code>\n\n"
-            f"Описание: <code>{str(e)[:150]}</code>\n\n"
-            "Попробуйте:\n"
-            "• Написать название по-другому\n"
-            "• Использовать только ключевые слова",
+            "Попробуйте изменить формулировку или использовать более простые ключевые слова.",
             reply_markup=get_back_button()
         )
         await state.clear()

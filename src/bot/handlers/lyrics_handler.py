@@ -189,8 +189,8 @@ async def receive_track_query(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"[lyrics] Ошибка: {e}", exc_info=True)
         await status_msg.edit_text(
-            "❌ <b>Ошибка при получении текста</b>\n\n"
-            f"<code>{str(e)[:200]}</code>",
+            "❌ <b>Текст не найден</b>\n"
+            "Убедитесь, что правильно указали название и исполнителя",
             reply_markup=get_back_button()
         )
         await state.clear()
